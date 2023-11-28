@@ -108,7 +108,6 @@ static UINT32 *SetGraphicsMode(UINT32 width, UINT32 height)
 	for (mode = 0; mode < graphics->Mode->MaxMode; mode++) {
 		EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
 		UINTN size;
-		info->Version = 0;
 
 		efi_status = graphics->QueryMode(graphics, mode, &size, &info);
 
