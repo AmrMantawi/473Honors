@@ -133,10 +133,10 @@ static UINT32 *SetGraphicsMode(UINT32 width, UINT32 height)
                                                   L"Failed to set graphics mode!\r\n");
                 return NULL;
             }
+				// Return the frame buffer base address
+			return (UINT32 *) graphics->Mode->FrameBufferBase;
 		}
 
-		// Return the frame buffer base address
-		return (UINT32 *) graphics->Mode->FrameBufferBase;
 	}
 	return NULL;
 }
@@ -161,17 +161,44 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		return efi_status;
 	}
 
-	// TODO: Load the kernel
+	// Load the kernel
+    // Seek to the beginning of the file
+    efi_status = fh->SetPosition(fh, 0);
+    if (EFI_ERROR(efi_status)) {
+        // Handle error
+        return efi_status;
+    }
+
+	//Allocate kernal buffer 
+	void *kernelBuffer = AllocatePool(SIZE_1MB);
+	if (kernelBuffer == NULL) {
+        // Handle allocation error
+        return RETURN_OUT_OF_RESOURCES;
+    }
+
+    // Read the file content into the buffer
+	UINTN bufferSize = SIZE_1MB;
+	efi_status = fh->Read(fh, &bufferSize, kernelBuffer);
+	if (EFI_ERROR(efi_status)) {
+		// Handle error
+		return efi_status;
+	}
 
 	CloseKernel(vh, fh);
 
 	fb = SetGraphicsMode(800, 600);
 
-	// kernel's _start() is at base #0 (raw binary format)
-	// cast the function pointer appropriately and call the function
-	//
-	// kernel_entry_t func = (kernel_entry_t) buffer;
-	// func(fb, 800, 600);
+	kernel_entry_t func = (kernel_entry_t) kernelBuffer;
 
+	if (fb == NULL) {
+		// Handle error
+		FreePool(kernelBuffer);
+		return RETURN_UNSUPPORTED;
+	}
+	/* Draw some simple figure (rectangle, square, etc)
+	to indicate kernel activity. */
+	func(fb, 800, 600);
+
+	FreePool(kernelBuffer);
 	return EFI_SUCCESS;
 }
