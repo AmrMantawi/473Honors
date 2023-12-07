@@ -7,7 +7,6 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
-#include <stdio.h>
 
 /* Use GUID names 'gEfi...' that are already declared in Protocol headers. */
 EFI_GUID gEfiLoadedImageProtocolGuid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
@@ -148,7 +147,8 @@ typedef void (*kernel_entry_t) (unsigned int *, int, int) __attribute__((sysv_ab
 EFI_STATUS EFIAPI
 efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 {
-
+	///////////////////////
+	// Part 1: 
 	EFI_FILE_PROTOCOL *vh, *fh;
 	EFI_STATUS efi_status;
 	UINT32 *fb;
@@ -182,23 +182,12 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	UINTN numToRead = SIZE_1MB;
 	UINTN tempLength = numToRead;
 	char *tempBuffer = (char *)kernelBuffer;
-	// while(numToRead > 0)
-	// {
-	// 	tempLength = numToRead;
 
-		// Read kernal to buffer
-		efi_status = fh->Read(fh, &tempLength, tempBuffer);
-		if (EFI_ERROR(efi_status)) {
-			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to read kernal!\r\n");
-			
-			return efi_status;
-		}
-
-	// 	// Update numToRead
-	// 	numToRead -= tempLength;
-	// 	tempBuffer += tempLength;
-	// }
-
+	efi_status = fh->Read(fh, &tempLength, tempBuffer);
+	if (EFI_ERROR(efi_status)) {
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to read kernal!\r\n");
+		return efi_status;
+	}
 
 	CloseKernel(vh, fh);
 
@@ -219,12 +208,9 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
     }
 
 	do{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 1\r\n");
-
 		//Free memoryMap buffer if already allocated
 		if(memoryMap != NULL)
 			FreePool(memoryMap);
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 2\r\n");
 
 		// Allocate memory for memoryMap
 		memoryMap = AllocatePool(mapSize);
@@ -234,7 +220,6 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate memoryMap buffer!\r\n");
 			return RETURN_OUT_OF_RESOURCES;
 		}
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 3\r\n");
 
 		// Retrieve memory map
 		efi_status = BootServices->GetMemoryMap(&mapSize, memoryMap, &mapKey, &mapDescriptorSize, &mapDescriptorVersion);
@@ -244,8 +229,8 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memoryMap!\r\n");
 			return efi_status;
 		}
-		//SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 4\r\n");
 
+		// Try to call exitBootServices if memory map retrieval is successful
 		if(efi_status == EFI_SUCCESS)
 		{
 			efi_status = BootServices->ExitBootServices(imageHandle, mapKey);
@@ -259,6 +244,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	}while(efi_status != EFI_SUCCESS);
 	
 	FreePool(memoryMap); //Free allocated memoryMap buffer
+
 	/////////////////
 
 	fb = SetGraphicsMode(800, 600);
