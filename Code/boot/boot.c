@@ -7,6 +7,7 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/GraphicsOutput.h>
+#include <stdio.h>
 
 /* Use GUID names 'gEfi...' that are already declared in Protocol headers. */
 EFI_GUID gEfiLoadedImageProtocolGuid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
@@ -147,6 +148,7 @@ typedef void (*kernel_entry_t) (unsigned int *, int, int) __attribute__((sysv_ab
 EFI_STATUS EFIAPI
 efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 {
+
 	EFI_FILE_PROTOCOL *vh, *fh;
 	EFI_STATUS efi_status;
 	UINT32 *fb;
@@ -165,26 +167,99 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
     // Seek to the beginning of the file
     efi_status = fh->SetPosition(fh, 0);
     if (EFI_ERROR(efi_status)) {
-        // Handle error
-        return efi_status;
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to load kernal!\r\n");
+		return efi_status;
     }
 
 	//Allocate kernal buffer 
 	void *kernelBuffer = AllocatePool(SIZE_1MB);
 	if (kernelBuffer == NULL) {
-        // Handle allocation error
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate kernal buffer!\r\n");
         return RETURN_OUT_OF_RESOURCES;
     }
 
     // Read the file content into the buffer
-	UINTN bufferSize = SIZE_1MB;
-	efi_status = fh->Read(fh, &bufferSize, kernelBuffer);
-	if (EFI_ERROR(efi_status)) {
-		// Handle error
-		return efi_status;
-	}
+	UINTN numToRead = SIZE_1MB;
+	UINTN tempLength = numToRead;
+	char *tempBuffer = (char *)kernelBuffer;
+	// while(numToRead > 0)
+	// {
+	// 	tempLength = numToRead;
+
+		// Read kernal to buffer
+		efi_status = fh->Read(fh, &tempLength, tempBuffer);
+		if (EFI_ERROR(efi_status)) {
+			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to read kernal!\r\n");
+			
+			return efi_status;
+		}
+
+	// 	// Update numToRead
+	// 	numToRead -= tempLength;
+	// 	tempBuffer += tempLength;
+	// }
+
 
 	CloseKernel(vh, fh);
+
+	/////////////////
+	//Part 2:
+	
+    EFI_MEMORY_DESCRIPTOR *memoryMap = NULL;
+    UINTN mapKey, mapDescriptorSize;
+	UINTN mapSize = 0;
+    UINT32 mapDescriptorVersion;
+
+    // Retrieve memory map size
+    efi_status = BootServices->GetMemoryMap(&mapSize, memoryMap, &mapKey, &mapDescriptorSize, &mapDescriptorVersion);
+    if (efi_status != EFI_BUFFER_TOO_SMALL) {
+        FreePool(kernelBuffer); // Free allocated buffer
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memory map size!\r\n");
+        return efi_status;
+    }
+
+	do{
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 1\r\n");
+
+		//Free memoryMap buffer if already allocated
+		if(memoryMap != NULL)
+			FreePool(memoryMap);
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 2\r\n");
+
+		// Allocate memory for memoryMap
+		memoryMap = AllocatePool(mapSize);
+		if(memoryMap == NULL) // Return error if allocation was unsuccessful 
+		{
+			FreePool(kernelBuffer); // Free allocated buffer
+			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate memoryMap buffer!\r\n");
+			return RETURN_OUT_OF_RESOURCES;
+		}
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 3\r\n");
+
+		// Retrieve memory map
+		efi_status = BootServices->GetMemoryMap(&mapSize, memoryMap, &mapKey, &mapDescriptorSize, &mapDescriptorVersion);
+		if (efi_status != EFI_SUCCESS) { // Return error if retrieval not successful 
+			FreePool(kernelBuffer); // Free allocated buffers
+			FreePool(memoryMap);
+			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memoryMap!\r\n");
+			return efi_status;
+		}
+		//SystemTable->ConOut->OutputString(SystemTable->ConOut, L"checkpoint 4\r\n");
+
+		if(efi_status == EFI_SUCCESS)
+		{
+			efi_status = BootServices->ExitBootServices(imageHandle, mapKey);
+			if((efi_status != EFI_INVALID_PARAMETER) && (EFI_ERROR(efi_status))) {// Return error if exit returned unsafe  was unsuccessful 
+				FreePool(kernelBuffer); // Free allocated buffers
+				FreePool(memoryMap);
+				SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to exit boot services!\r\n");
+				return efi_status;
+			}
+		}
+	}while(efi_status != EFI_SUCCESS);
+	
+	FreePool(memoryMap); //Free allocated memoryMap buffer
+	/////////////////
 
 	fb = SetGraphicsMode(800, 600);
 
@@ -195,10 +270,9 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		FreePool(kernelBuffer);
 		return RETURN_UNSUPPORTED;
 	}
-	/* Draw some simple figure (rectangle, square, etc)
-	to indicate kernel activity. */
-	func(fb, 800, 600);
 
+	func(fb, 800, 600);
+	
 	FreePool(kernelBuffer);
 	return EFI_SUCCESS;
 }
