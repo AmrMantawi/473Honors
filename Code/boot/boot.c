@@ -210,9 +210,8 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
     UINT32 mapDescriptorVersion;
 
 	do{
-		//Free memoryMap buffer if already allocated (efi_status should be successful in first iteration)
-		if(efi_status != EFI_SUCCESS)
-			FreePool(memoryMap);
+		mapSize = 0;
+		memoryMap = NULL;
 
 		// Retrieve memory map size
 		efi_status = BootServices->GetMemoryMap(&mapSize, memoryMap, &mapKey, &mapDescriptorSize, &mapDescriptorVersion);
@@ -222,7 +221,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memory map size!\r\n");
 			return efi_status;
 		}
-		
+
 		// Allocate memory for memoryMap
 		memoryMap = AllocatePool(mapSize);
 		if(memoryMap == NULL && efi_status != EFI_SUCCESS) // Return error if allocation was unsuccessful 
@@ -245,11 +244,8 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		if(efi_status == EFI_SUCCESS)
 		{
 			efi_status = BootServices->ExitBootServices(imageHandle, mapKey);
-			if((efi_status != EFI_INVALID_PARAMETER) && (EFI_ERROR(efi_status))) {// Return error if exit returned unsafe  was unsuccessful 
-				FreePool(kernelBuffer); // Free allocated buffers
+			if(efi_status != EFI_SUCCESS) {// Return error if exit was unsuccessful 
 				FreePool(memoryMap);
-				SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to exit boot services!\r\n");
-				return efi_status;
 			}
 		}
 	}while(efi_status != EFI_SUCCESS);
