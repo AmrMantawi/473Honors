@@ -250,8 +250,6 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		}
 	}while(efi_status != EFI_SUCCESS);
 	
-	FreePool(memoryMap); //Free allocated memoryMap buffer
-
 	/////////////////
 
 	func(fb, 800, 600);
