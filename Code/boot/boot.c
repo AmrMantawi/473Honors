@@ -191,6 +191,16 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 
 	CloseKernel(vh, fh);
 
+	fb = SetGraphicsMode(800, 600);
+	if (fb == NULL) {
+		// Handle error
+		FreePool(kernelBuffer);
+		return RETURN_UNSUPPORTED;
+	}
+
+	kernel_entry_t func = (kernel_entry_t) kernelBuffer;
+
+
 	/////////////////
 	//Part 2:
 	
@@ -199,22 +209,23 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	UINTN mapSize = 0;
     UINT32 mapDescriptorVersion;
 
-    // Retrieve memory map size
-    efi_status = BootServices->GetMemoryMap(&mapSize, memoryMap, &mapKey, &mapDescriptorSize, &mapDescriptorVersion);
-    if (efi_status != EFI_BUFFER_TOO_SMALL) {
-        FreePool(kernelBuffer); // Free allocated buffer
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memory map size!\r\n");
-        return efi_status;
-    }
-
 	do{
-		//Free memoryMap buffer if already allocated
-		if(memoryMap != NULL)
+		//Free memoryMap buffer if already allocated (efi_status should be successful in first iteration)
+		if(efi_status != EFI_SUCCESS)
 			FreePool(memoryMap);
 
+		// Retrieve memory map size
+		efi_status = BootServices->GetMemoryMap(&mapSize, memoryMap, &mapKey, &mapDescriptorSize, &mapDescriptorVersion);
+		if (efi_status != EFI_BUFFER_TOO_SMALL) {
+			FreePool(kernelBuffer); // Free allocated buffer
+			FreePool(memoryMap);
+			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memory map size!\r\n");
+			return efi_status;
+		}
+		
 		// Allocate memory for memoryMap
 		memoryMap = AllocatePool(mapSize);
-		if(memoryMap == NULL) // Return error if allocation was unsuccessful 
+		if(memoryMap == NULL && efi_status != EFI_SUCCESS) // Return error if allocation was unsuccessful 
 		{
 			FreePool(kernelBuffer); // Free allocated buffer
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate memoryMap buffer!\r\n");
@@ -230,7 +241,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 			return efi_status;
 		}
 
-		// Try to call exitBootServices if memory map retrieval is successful
+		// Try to call ExitBootServices if memory map retrieval is successful
 		if(efi_status == EFI_SUCCESS)
 		{
 			efi_status = BootServices->ExitBootServices(imageHandle, mapKey);
@@ -246,16 +257,6 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	FreePool(memoryMap); //Free allocated memoryMap buffer
 
 	/////////////////
-
-	fb = SetGraphicsMode(800, 600);
-
-	kernel_entry_t func = (kernel_entry_t) kernelBuffer;
-
-	if (fb == NULL) {
-		// Handle error
-		FreePool(kernelBuffer);
-		return RETURN_UNSUPPORTED;
-	}
 
 	func(fb, 800, 600);
 	
