@@ -224,7 +224,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 
 		// Allocate memory for memoryMap
 		memoryMap = AllocatePool(mapSize);
-		if(memoryMap == NULL && efi_status != EFI_SUCCESS) // Return error if allocation was unsuccessful 
+		if(memoryMap == NULL) // Return error if allocation was unsuccessful 
 		{
 			FreePool(kernelBuffer); // Free allocated buffer
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate memoryMap buffer!\r\n");
