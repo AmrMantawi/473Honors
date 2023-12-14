@@ -142,7 +142,7 @@ static UINT32 *SetGraphicsMode(UINT32 width, UINT32 height)
 }
 
 /* Use System V ABI rather than EFI/Microsoft ABI. */
-typedef void (*kernel_entry_t) (unsigned int *, int, int) __attribute__((sysv_abi));
+typedef void (*kernel_entry_t) (unsigned int *, int, int, void *, int) __attribute__((sysv_abi));
 
 EFI_STATUS EFIAPI
 efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
@@ -180,10 +180,8 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 
     // Read the file content into the buffer
 	UINTN numToRead = SIZE_1MB;
-	UINTN tempLength = numToRead;
-	char *tempBuffer = (char *)kernelBuffer;
 
-	efi_status = fh->Read(fh, &tempLength, tempBuffer);
+	efi_status = fh->Read(fh, &numToRead, kernelBuffer);
 	if (EFI_ERROR(efi_status)) {
 		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to read kernal!\r\n");
 		return efi_status;
@@ -199,8 +197,21 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	}
 
 	kernel_entry_t func = (kernel_entry_t) kernelBuffer;
+	/////////////////
+	//Part 3:
 
+	//Allocate Pages
+	EFI_PHYSICAL_ADDRESS *pageBuffer;
+	UINTN pageBufferSize = (SIZE_1MB * 32);
+	UINTN num_pages = (pageBufferSize / EFI_PAGE_SIZE);
 
+	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_pages, pageBuffer);
+	if(efi_status != EFI_SUCCESS)
+	{
+		FreePool(kernelBuffer);
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate pages!\r\n");
+		return efi_status;
+	}
 	/////////////////
 	//Part 2:
 	
@@ -251,8 +262,8 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	}while(efi_status != EFI_SUCCESS);
 	
 	/////////////////
-
-	func(fb, 800, 600);
+	
+	func(fb, 800, 600, pageBuffer, pageBufferSize);
 	
 	FreePool(kernelBuffer);
 	return EFI_SUCCESS;
