@@ -197,8 +197,8 @@ static UINT32 *SetGraphicsMode(UINT32 width, UINT32 height)
 }
 
 /* Use System V ABI rather than EFI/Microsoft ABI. */
-//typedef void (*kernel_entry_t) (void *, void *, void *, int, int, void *, void *, unsigned long) __attribute__((sysv_abi));
-typedef void (*kernel_entry_t) (unsigned int *, int, int) __attribute__((sysv_abi));
+typedef void (*kernel_entry_t) (void *, void *, void *, int, int, void *, void *, unsigned long) __attribute__((sysv_abi));
+//typedef void (*kernel_entry_t) (unsigned int *, int, int) __attribute__((sysv_abi));
 EFI_STATUS EFIAPI
 efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 {
@@ -398,7 +398,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	}while(efi_status != EFI_SUCCESS);
 	
 	/////////////////
-	//func((void *) kstack, (void *) ustack, (void *) fb, 800, 600, (void *) ucode, (void *) memoryBuffer, memoryBufferSize);
-	func(fb, 800, 600);
+	func((void *) kstack, (void *) ustack, (void *) fb, 800, 600, (void *) ucode, (void *) memoryBuffer, memoryBufferSize);
+	//func(fb, 800, 600);
 	return EFI_SUCCESS;
 }
