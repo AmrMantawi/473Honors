@@ -56,7 +56,7 @@ void kernel_start(void *kstack, void *ustack, unsigned int *fb, int width, int h
 	kernel_memory_end = memory + memorySize;
 	mem_init(memory, KERNEL_HEAP_SIZE);
 	kernel_init(ustack, ucode, memory + KERNEL_HEAP_SIZE, memorySize - KERNEL_HEAP_SIZE);
-	//user_jump(user_program);
+	user_jump(user_program);
 	/* Never exit! */
 	while (1) {};
 }
