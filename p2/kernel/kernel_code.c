@@ -28,8 +28,7 @@ void kernel_init(void *ustack, void *uprogram, void *memory, size_t memorySize)
 	// 'memorySize' is the maximum allowed size, do not exceed that (given just in case)
 
     // Align the memory pointer to the next 4KiB boundary for page table alignment
-    u64 *pt = (void *) (((size_t) memory + 4095) & (~4095ULL));
-
+    u64 *pt = memory;
     // Initialize the Page Table Entries (PTEs)
     for (size_t i = 0; i < 1048576; i++) {
         pt[i] = 0; 			// Clear the entry

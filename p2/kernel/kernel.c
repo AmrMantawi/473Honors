@@ -40,14 +40,14 @@ void *kernel_memory_end = NULL;
 extern void *user_program;
 
 /* The main program starts here */
-void kernel_start(void *kstack, void *ustack, void *fb, int width, int height,
-		  void *ucode, void *memory, size_t memorySize)
+void kernel_start(void *kstack, void *ustack, unsigned int *fb, int width, int height,
+		  void *ucode, void *memory, unsigned long memorySize)
 {
 	// for(int i = 0; i < height/2; i++)
 	// {
 	// 	for(int w = 0; w < width/2; w++)
 	// 	{
-	// 		((unsigned int *)fb)[i + width * w] = 0xFFFFFFFF;
+	// 		fb[i + width * w] = 0xFFFFFFFF;
 	// 	}
 	// }
 	fb_init(fb, width, height);
@@ -56,7 +56,7 @@ void kernel_start(void *kstack, void *ustack, void *fb, int width, int height,
 	kernel_memory_end = memory + memorySize;
 	mem_init(memory, KERNEL_HEAP_SIZE);
 	kernel_init(ustack, ucode, memory + KERNEL_HEAP_SIZE, memorySize - KERNEL_HEAP_SIZE);
-	user_jump(user_program);
+	//user_jump(user_program);
 	/* Never exit! */
 	while (1) {};
 }
