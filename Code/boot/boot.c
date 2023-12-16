@@ -42,9 +42,9 @@ static VOID FreePool(VOID *buf)
 {
 	BootServices->FreePool(buf);
 }
-static VOID FreePages(EFI_PHYSICAL_ADDRESS *luf, UINTN pages)
+static VOID FreePages(EFI_PHYSICAL_ADDRESS buf, UINTN pages)
 {
-	BootServices->FreePages(*luf, pages);
+	BootServices->FreePages(buf, pages);
 }
 static EFI_STATUS OpenKernel(EFI_FILE_PROTOCOL **pvh, EFI_FILE_PROTOCOL **pfh)
 {
@@ -303,11 +303,11 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 
 
 	//Allocate memory to be passed into kernal
-	EFI_PHYSICAL_ADDRESS *memoryBuffer;
+	EFI_PHYSICAL_ADDRESS memoryBuffer;
 	UINTN memoryBufferSize = (SIZE_1MB * 32);
 	UINTN num_mem_pages = (memoryBufferSize / EFI_PAGE_SIZE);
 
-	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_mem_pages, memoryBuffer);
+	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_mem_pages, &memoryBuffer);
 	if(efi_status != EFI_SUCCESS)
 	{
 		FreePool(ucode);
@@ -317,10 +317,10 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	}
 
 	//Allocate ustack
-	EFI_PHYSICAL_ADDRESS *ustack;
+	EFI_PHYSICAL_ADDRESS ustack;
 	UINTN num_ustack_pages = (SIZE_1MB / EFI_PAGE_SIZE);
 
-	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_ustack_pages, ustack);
+	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_ustack_pages, &ustack);
 	if(efi_status != EFI_SUCCESS)
 	{
 		FreePool(ucode);
@@ -330,13 +330,13 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		return efi_status;
 	}
 	//Set pointer to end of buffer
-	ustack = (EFI_PHYSICAL_ADDRESS *)((void *)ustack + SIZE_1MB);
+	ustack = ustack + SIZE_1MB;
 
 	//Allocate kstack
-	EFI_PHYSICAL_ADDRESS *kstack;
+	EFI_PHYSICAL_ADDRESS kstack;
 	UINTN num_kstack_pages = (SIZE_1MB / EFI_PAGE_SIZE);
 
-	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_kstack_pages, kstack);
+	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_kstack_pages, &kstack);
 	if(efi_status != EFI_SUCCESS)
 	{
 		FreePages(ustack, num_ustack_pages);
@@ -347,7 +347,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		return efi_status;
 	}
 	//Set pointer to end of buffer
-	kstack = (EFI_PHYSICAL_ADDRESS *)((void *)kstack + SIZE_1MB);
+	kstack = kstack + SIZE_1MB;
 
 	/////////////////
 	//Part 2:
