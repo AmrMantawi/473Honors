@@ -21,8 +21,6 @@ void *user_program = NULL;
 void kernel_init(void *ustack, void *uprogram, void *memory, size_t memorySize)
 {
 
-    //printf("Hello from sgroup69, AmrMantawi\n");
-
 	// 'memory' points to the place where memory can be used to create
 	// page tables (assume 1:1 initial virtual-to-physical mappings here)
 	// 'memorySize' is the maximum allowed size, do not exceed that (given just in case)

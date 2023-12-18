@@ -43,13 +43,6 @@ extern void *user_program;
 void kernel_start(void *kstack, void *ustack, unsigned int *fb, int width, int height,
 		  void *ucode, void *memory, unsigned long memorySize)
 {
-	// for(int i = 0; i < height/2; i++)
-	// {
-	// 	for(int w = 0; w < width/2; w++)
-	// 	{
-	// 		fb[i + width * w] = 0xFFFFFFFF;
-	// 	}
-	// }
 	fb_init(fb, width, height);
 	syscall_init();
 	kernel_memory = memory + KERNEL_HEAP_SIZE;

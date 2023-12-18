@@ -279,23 +279,24 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
         SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to load user!\r\n");
 		return efi_status;
     }
-	else{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"loaded user!\r\n");
-	}
 
 	// //Allocate user buffer 
-	void *ucode = AllocatePool(SIZE_1MB);
-	if (ucode == NULL) {
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate user buffer!\r\n");
+	EFI_PHYSICAL_ADDRESS ucode;
+	UINTN num_ucode_pages = (SIZE_1MB / EFI_PAGE_SIZE);
+
+	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_ucode_pages, &ucode);
+	if (efi_status != EFI_SUCCESS) {
+		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate ucode buffer!\r\n");
         return RETURN_OUT_OF_RESOURCES;
     }
 
     // Read the file content into the buffer
 	numToRead = SIZE_1MB;
-
-	efi_status = u_fh->Read(u_fh, &numToRead, ucode);
+	efi_status = u_fh->Read(u_fh, &numToRead, (void *)ucode);
 	if (EFI_ERROR(efi_status)) {
 		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to read user!\r\n");
+		FreePool(kernelBuffer);
+		FreePages(ucode, num_ucode_pages);
 		return efi_status;
 	}
 
@@ -304,13 +305,13 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 
 	//Allocate memory to be passed into kernal
 	EFI_PHYSICAL_ADDRESS memoryBuffer;
-	UINTN memoryBufferSize = (SIZE_1MB * 32);
+	UINTN memoryBufferSize = (SIZE_1MB << 7);
 	UINTN num_mem_pages = (memoryBufferSize / EFI_PAGE_SIZE);
 
 	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_mem_pages, &memoryBuffer);
 	if(efi_status != EFI_SUCCESS)
 	{
-		FreePool(ucode);
+		FreePages(ucode, num_ucode_pages);
 		FreePool(kernelBuffer);
 		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate memory!\r\n");
 		return efi_status;
@@ -323,14 +324,14 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	efi_status = BootServices->AllocatePages(AllocateAnyPages, EfiBootServicesData, num_ustack_pages, &ustack);
 	if(efi_status != EFI_SUCCESS)
 	{
-		FreePool(ucode);
+		FreePages(ucode, num_ucode_pages);
 		FreePages(memoryBuffer, num_mem_pages);
 		FreePool(kernelBuffer);
 		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate ustack!\r\n");
 		return efi_status;
 	}
 	//Set pointer to end of buffer
-	ustack = ustack + SIZE_1MB;
+	ustack = (EFI_PHYSICAL_ADDRESS)((void *)ustack + SIZE_1MB);
 
 	//Allocate kstack
 	EFI_PHYSICAL_ADDRESS kstack;
@@ -340,14 +341,14 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 	if(efi_status != EFI_SUCCESS)
 	{
 		FreePages(ustack, num_ustack_pages);
-		FreePool(ucode);
+		FreePages(ucode, num_ucode_pages);
 		FreePages(memoryBuffer, num_mem_pages);
 		FreePool(kernelBuffer);
 		SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate kstack!\r\n");
 		return efi_status;
 	}
 	//Set pointer to end of buffer
-	kstack = kstack + SIZE_1MB;
+	kstack = (EFI_PHYSICAL_ADDRESS)((void *)kstack + SIZE_1MB);
 
 	/////////////////
 	//Part 2:
@@ -366,7 +367,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		if (efi_status != EFI_BUFFER_TOO_SMALL) {
 			FreePages(kstack, num_kstack_pages);
 			FreePages(ustack, num_ustack_pages);
-			FreePool(ucode);
+			FreePages(ucode, num_ucode_pages);
 			FreePages(memoryBuffer, num_mem_pages);
 			FreePool(kernelBuffer); // Free allocated buffers
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to retrieve memory map size!\r\n");
@@ -379,7 +380,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		{
 			FreePages(kstack, num_kstack_pages);
 			FreePages(ustack, num_ustack_pages);
-			FreePool(ucode);
+			FreePages(ucode, num_ucode_pages);
 			FreePages(memoryBuffer, num_mem_pages);
 			FreePool(kernelBuffer); // Free allocated buffers
 			SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Failed to allocate memoryMap buffer!\r\n");
@@ -391,7 +392,7 @@ efi_main(EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE *systemTable)
 		if (efi_status != EFI_SUCCESS) { // Return error if retrieval not successful 
 			FreePages(kstack, num_kstack_pages);
 			FreePages(ustack, num_ustack_pages);
-			FreePool(ucode);
+			FreePages(ucode, num_ucode_pages);
 			FreePages(memoryBuffer, num_mem_pages);
 			FreePool(kernelBuffer);
 			FreePool(memoryMap); // Free allocated buffers
